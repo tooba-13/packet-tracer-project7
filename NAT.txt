@@ -1,0 +1,190 @@
+NAT:
+-- The connection is private, not used public addresses
+-- privately travel, publically allow(not)
+
+TYPE:
+STATIC NAT -> 1 TO 1 MAPPING (1 private, 1 public)
+DYNAMIC NAT -> Many to many, many to one
+
+WHY WE NEED NAT?
+Understanding of IP Addresses(Attack on all network)
+End devices -> NAT used(80%)
+
+en
+show ip route
+-----------------------------------------------------------------------
+STATIC NAT(1 TO 1 MAPPING):
+Interfaces status(public/private)
+
+en
+conf t
+hos CORVIT
+exit
+
+show ip nat translations	[to check nat translations]
+conf t
+interface fastEthernet 0/0	[public ip address -> outside]
+ip nat outside
+exit
+
+int fastEthernet 0/1		[private ip address -> inside]
+ip nat inside 
+exit
+
+ping 200.1.1.2 (PC)
+ping 200.1.1.2 (laptop)
+
+ip nat inside source static ?
+ip nat inside source static 192.168.1.2 ?
+ip nat inside source static 192.168.1.2 200.1.1.200
+
+----------------------------------------------------------------
+STATIC NAT:
+Router>
+Router>en
+Router#config t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router(config)#hostname R1
+R1(config)#int
+R1(config)#interface fa
+R1(config)#interface fastEthernet 0/0
+R1(config-if)#ip add
+R1(config-if)#ip address 210.210.210.210 255.255.255.0
+R1(config-if)#no shutdown
+R1(config-if)#exit
+R1(config)#
+R1(config)#int
+R1(config)#interface fas
+R1(config)#interface fastEthernet 0/1
+R1(config-if)#ip add
+R1(config-if)#ip address 192.168.1.100 255.255.255.0
+R1(config-if)#no shutdown
+R1(config-if)#exit
+R1(config)#
+R1(config)#int fast
+R1(config)#int fastEthernet 0/0 
+R1(config-if)#ip nat outside
+R1(config-if)#exit
+R1(config)#
+R1(config)#int fastEthernet 0/1
+R1(config-if)#ip nat inside
+R1(config-if)#exit
+R1(config)#
+R1(config)#ip nat inside source static 192.168.1.2 210.210.210.222
+R1(config)#
+
+C:\>ping 210.210.210.211
+
+Pinging 210.210.210.211 with 32 bytes of data:
+
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+
+Ping statistics for 210.210.210.211:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 0ms, Maximum = 0ms, Average = 0ms
+
+R1#show ip nat translations
+Pro  Inside global     Inside local       Outside local      Outside global
+icmp 210.210.210.222:20192.168.1.2:20     210.210.210.211:20 210.210.210.211:20
+icmp 210.210.210.222:21192.168.1.2:21     210.210.210.211:21 210.210.210.211:21
+icmp 210.210.210.222:22192.168.1.2:22     210.210.210.211:22 210.210.210.211:22
+icmp 210.210.210.222:23192.168.1.2:23     210.210.210.211:23 210.210.210.211:23
+---  210.210.210.222   192.168.1.2        ---                ---
+
+---------------------------------------------------------------------------
+ping 200.1.1.2 (laptop)
+
+ctrl z
+show ip nat translations
+
+telnet 200.1.1.2 (laptop)
+
+show ip nat translations	[less]
+
+no ip nat inside source static 192.168.1.2 200.1.1.200
+
+--------------------------------------------------------------------
+DYNAMIC NAT(Many to one):
+1. Interfaces status
+interface fastEthernet 0/0	[public ip address -> outside]
+ip nat outside
+exit
+
+int fastEthernet 0/1		[private ip address -> inside]
+ip nat inside 
+exit
+
+2. Excess control list -> private ip match public ip
+access-list 1 permit 192.168.1.0 0.0.0.255	[wildcard mask]
+
+3. public ip's pool
+ip nat pool RR ?
+	A.B.C.D Start IP Address
+ip nat pool RR 200.1.1.200 ?
+	A.B.C.D END IP Address
+ip nat pool RR 200.1.1.200 200.1.1.200 ?
+	netmask Specify the network mask
+ip nat pool RR 200.1.1.200 200.1.1.200 netmask 255.255.255.0
+
+ip nat inside source list 1 pool RR overload	[ip traffic-> translate(pool RR-> overload)]
+
+------------------------------------------------------------------------
+# 2 and 3 points
+access-list 1 permit 192.168.1.0 0.0.0.255
+ip nat pool RR 200.1.1.200 200.1.1.200 netmask 255.255.255.0
+ip nat inside source list 1 pool RR overload
+------------------------------------------------------------------------
+show ip nat translations
+ping 200.1.1.2 (PC)
+ping 200.1.1.2 (laptop)
+show ip nat translations
+-------------------------------------------------------------------------
+ACL DELETE-> NO PING
+-------------------------------------------------------------------------
+DYNAMIC NAT:
+R1#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+R1(config)#no ip nat inside source static 192.168.1.2 210.210.210.222
+R1(config)#
+R1(config)#
+R1(config)#interface fastEthernet 0/0
+R1(config-if)#ip nat outside
+R1(config-if)#exit
+R1(config)#
+R1(config)#interface fastEthernet 0/1
+R1(config-if)#ip nat inside
+R1(config-if)#exit
+R1(config)#
+R1(config)#access-list 1 permit 192.168.1.0 0.0.0.255
+R1(config)#ip nat pool RR ?
+  A.B.C.D  Start IP address
+R1(config)#ip nat pool RR 210.210.210.222 ?
+  A.B.C.D  End IP address
+R1(config)#ip nat pool RR 210.210.210.222 210.210.210.222
+% Incomplete command.
+R1(config)#ip nat pool RR 210.210.210.222 210.210.210.222?
+A.B.C.D  
+R1(config)#ip nat pool RR 210.210.210.222 210.210.210.222 netmask ?
+  A.B.C.D  Network mask
+R1(config)#ip nat pool RR 210.210.210.222 210.210.210.222 netmask 255.255.255.0
+R1(config)#ip nat inside source list 1 pool RR overload
+R1(config)#
+
+C:\>ping 210.210.210.211
+
+Pinging 210.210.210.211 with 32 bytes of data:
+
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+Reply from 210.210.210.211: bytes=32 time<1ms TTL=254
+
+Ping statistics for 210.210.210.211:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 0ms, Maximum = 0ms, Average = 0ms
+--------------------------------------------------------------------------
